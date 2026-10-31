@@ -114,15 +114,25 @@ Authorization อยู่ใน backend เป็น policy function ของ�
 | การกระทำ | Owner | Receptionist | Technician | Customer |
 |---|---|---|---|---|
 | ดู Work Order | ทั้งร้าน | ทั้งร้าน | ทั้งร้าน | ของตนเท่านั้น |
-| สร้าง Work Order และ Customer | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
-| เปลี่ยนสถานะงาน, Issue Part | ได้ | ไม่ได้ | เฉพาะงานที่รับมอบหมาย | ไม่ได้ |
-| ออก Quotation | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
+| สร้าง Work Order และ Customer (เริ่มที่ RECEIVED) | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
+| เปลี่ยนสถานะงานซ่อม: RECEIVED → DIAGNOSING, WAITING_FOR_PARTS ↔ IN_PROGRESS, IN_PROGRESS → COMPLETED | ได้ | ไม่ได้ | เฉพาะงานที่รับมอบหมาย | ไม่ได้ |
+| Issue Part | ได้ | ไม่ได้ | เฉพาะงานที่รับมอบหมาย | ไม่ได้ |
+| บันทึกผลการซ่อม, `MARK_DEFECTIVE` | ได้ | ไม่ได้ | เฉพาะงานที่รับมอบหมาย | ไม่ได้ |
+| ออก Quotation: การส่งเปลี่ยน DIAGNOSING หรือ IN_PROGRESS → WAITING_FOR_APPROVAL | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
 | ตอบ Quotation | บันทึกแทน | บันทึกแทน | ไม่ได้ | ของตนเท่านั้น |
+| มอบหมาย Technician, ยกเลิก Work Order | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
+| เปลี่ยนเป็น DELIVERED: จาก COMPLETED หรือ CANCELLED | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
 | บันทึก Payment | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
+| ดูยอด Part | ได้ | ได้ | ได้ | ไม่ได้ |
+| รายการ Part, `RECEIPT` | ได้ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
 | ปรับยอดจากการนับ, Scrap, จัดลำดับคิว | ได้ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
-| รายงาน, จัดการ User | ได้ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
+| รายงาน, จัดการ User ของพนักงาน | ได้ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
 
-แถวที่ไม่ได้ระบุชัดในเอกสารตั้งต้นเป็นค่าเริ่มต้นที่อนุมานจากหน้าที่ของแต่ละบทบาท ต้องทบทวนตอนเขียน Acceptance Criteria
+เจ้าของโปรเจกต์ทบทวนและยืนยันตารางนี้เมื่อ 1 พ.ย. 2569 ยกเว้นค่าของ Owner และ Technician ในแถวสร้าง Work Order และ Customer กับแถวออก Quotation ซึ่งยังเป็นค่าอนุมาน ดูรายการที่เหลือใน [PRD](prd.md#สิ่งที่รอการยืนยัน)
+
+- **จัดการ User ของพนักงาน:** ไม่รวมลิงก์เชิญและ reset ของ Customer ซึ่ง Receptionist ออกให้ได้ตามหัวข้อลิงก์เชิญและ reset ด้านบน
+- **Technician:** เห็น Work Order ทั้งร้าน แต่เขียนได้เฉพาะงานที่รับมอบหมาย
+- **ผลของ Approval:** WAITING_FOR_APPROVAL → IN_PROGRESS หรือ WAITING_FOR_PARTS เกิดใน [transaction ของ Approval](#quotation-และ-approval) ตามแถวตอบ Quotation จึงไม่ใช่สิทธิ์เปลี่ยนสถานะโดยตรง
 
 ## Workflow ของ Work Order
 
