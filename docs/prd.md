@@ -28,7 +28,7 @@ RepairFlow ออกแบบสำหรับร้านซ่อมอุป
 | Platform Admin | ดูและระงับ Shop โดยอ่านข้อมูลงานซ่อมไม่ได้ ([ADR-0009](adr/0009-platform-admin-cannot-read-shop-data.md)) |
 | ผู้ชม Portfolio | ทดลอง Demo Shop ได้ครบทุกบทบาท และเห็นหลักฐานว่าระบบแก้ปัญหาได้จริง |
 
-สิทธิ์ของแต่ละบทบาทอยู่ใน[ตารางสิทธิ์](architecture.md#authentication-และ-authorization) ซึ่งยังมีค่าอนุมานที่[รอเจ้าของโปรเจกต์ยืนยัน](#สิ่งที่รอการยืนยัน)
+สิทธิ์ของแต่ละบทบาทอยู่ใน[ตารางสิทธิ์](architecture.md#authentication-และ-authorization) ซึ่งเจ้าของโปรเจกต์ทบทวนและยืนยันแล้ว
 
 ## ขอบเขต MVP
 
@@ -64,11 +64,12 @@ RepairFlow ออกแบบสำหรับร้านซ่อมอุป
 | Microservices, Redis และ Queue | ระบบยังเล็ก และ Postgres ตัวเดียวรับประกันความถูกต้องได้ | เอกสารตั้งต้น, [ADR-0002](adr/0002-synchronous-module-calls-with-shared-transaction.md) |
 | Rollup ของรายงาน | Query สดก่อน และค่อยเพิ่มเมื่อมีผลวัดว่าช้า | [architecture.md](architecture.md#รายงาน) |
 | Preview Deployment | ไม่ควรชี้ไปฐานข้อมูล production และการแยกฐานข้อมูลต่อ PR กิน quota ของ Neon | [architecture.md](architecture.md#delivery) |
-| MFA และ OTP | เอกสารต้นทางระบุว่าไม่ทำ แต่ไม่ได้ให้เหตุผล ดู [Q8](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้) | [ADR-0004](adr/0004-jwt-in-httponly-cookies-checked-against-db.md), [ADR-0003](adr/0003-per-shop-user-accounts.md) |
+| OTP | ต้องมีช่องทางอีเมลหรือ SMS ซึ่งโปรเจกต์ฟรีนี้ไม่มี | การตัดสินใจของเจ้าของโปรเจกต์ 1 พ.ย. 2569, [ADR-0006](adr/0006-in-app-notifications-only.md) |
+| MFA | เพิ่มงานลงทะเบียนและกู้คืนเกินขอบเขต MVP และเลือกใช้ httpOnly cookie ที่ตรวจกับ DB เป็นมาตรการหลักแล้ว | การตัดสินใจของเจ้าของโปรเจกต์ 1 พ.ย. 2569, [ADR-0004](adr/0004-jwt-in-httponly-cookies-checked-against-db.md) |
 
 ## User Stories
 
-เรื่องที่ระบุการกระทำของบทบาท อ้างจากหน้าที่ใน[เอกสารตั้งต้น](RepairFlow-Portfolio-Project.md#2-กลุ่มผู้ใช้งานและบทบาท) ไม่ได้ยืนยันตารางสิทธิ์
+เรื่องที่ระบุการกระทำของบทบาท อ้างจากหน้าที่ใน[เอกสารตั้งต้น](RepairFlow-Portfolio-Project.md#2-กลุ่มผู้ใช้งานและบทบาท) ถ้าต่างกันให้ยึด[ตารางสิทธิ์](architecture.md#authentication-และ-authorization)
 
 **Receptionist**
 
@@ -115,7 +116,7 @@ RepairFlow ออกแบบสำหรับร้านซ่อมอุป
 
 ## Acceptance Criteria ของ Workflow หลัก
 
-ครอบคลุมตั้งแต่ RECEIVED ถึง DELIVERED ตาม[แผนภาพสถานะ](architecture.md#workflow-ของ-work-order) ข้อเหล่านี้ไม่ระบุว่าบทบาทใดเป็นผู้ทำ เพราะผู้ทำเป็นไปตาม[ตารางสิทธิ์](architecture.md#authentication-และ-authorization) ส่วนที่ติด Q อยู่ยังตรวจรับไม่ได้จนกว่าจะมีคำตอบ
+ครอบคลุมตั้งแต่ RECEIVED ถึง DELIVERED ตาม[แผนภาพสถานะ](architecture.md#workflow-ของ-work-order) ผู้ทำเป็นไปตาม[ตารางสิทธิ์](architecture.md#authentication-และ-authorization) ส่วนที่ติด Q อยู่ยังตรวจรับไม่ได้จนกว่าจะมีคำตอบ
 
 ### กฎร่วม
 
@@ -130,22 +131,22 @@ RepairFlow ออกแบบสำหรับร้านซ่อมอุป
 
 - **AC-07** เปิด Work Order ได้เมื่อระบุ Customer, Device และอาการเสีย โดยเก็บ Promised Date และเริ่มที่ RECEIVED พร้อม Status History รายการแรก
 - **AC-08** แนบรูปได้ไม่เกิน 5 รูปต่อ Work Order ซึ่งเก็บแบบ private และเปิดผ่าน API ที่ตรวจสิทธิ์เท่านั้น ถ้าอัปโหลดรูปไม่ได้ Workflow ต้องทำงานต่อได้
-- **AC-09** มอบหมาย Technician ได้ ทุกคนที่เห็น Work Order เห็นว่าใครรับผิดชอบ และการมอบหมายถูกบันทึกใน Audit Log (ผู้ทำ: [Q2](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
+- **AC-09** Owner และ Receptionist มอบหมาย Technician ได้ ทุกคนที่เห็น Work Order เห็นว่าใครรับผิดชอบ และการมอบหมายถูกบันทึกใน Audit Log
 
 ### DIAGNOSING
 
-- **AC-10** RECEIVED เปลี่ยนเป็น DIAGNOSING ได้ และจาก DIAGNOSING ไปต่อได้เฉพาะ WAITING_FOR_APPROVAL หรือ CANCELLED
+- **AC-10** Owner และ Technician ที่รับมอบหมายเปลี่ยน RECEIVED เป็น DIAGNOSING ได้ ส่วน Receptionist เปลี่ยนไม่ได้ และจาก DIAGNOSING ไปต่อได้เฉพาะ WAITING_FOR_APPROVAL หรือ CANCELLED
 
 ### WAITING_FOR_APPROVAL
 
-- **AC-11** Quotation ประกอบด้วยค่าแรงและ Part เก็บราคาแต่ละรายการเป็น snapshot และมีวันหมดอายุ เมื่อส่งแล้ว Work Order อยู่ที่ WAITING_FOR_APPROVAL ([Q3](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
+- **AC-11** Quotation ประกอบด้วยค่าแรงและ Part เก็บราคาแต่ละรายการเป็น snapshot และมีวันหมดอายุ Owner และ Receptionist เป็นผู้ส่ง และการส่งเปลี่ยน Work Order เป็น WAITING_FOR_APPROVAL ในตัว ส่วน Technician ส่ง Quotation และเปลี่ยนเป็นสถานะนี้โดยตรงไม่ได้
 - **AC-12** Quotation ที่ส่งแล้วแก้ไม่ได้ การเปลี่ยนต้องออกฉบับใหม่ และ Superseded Quotation รับ Approval ไม่ได้
 - **AC-13** Customer ที่มี User ตอบ Quotation ของตนเองใน Customer Portal ได้ ส่วน Staff-recorded Approval ต้องระบุช่องทางและผู้บันทึก
 - **AC-14** Approval เป็น transaction เดียวตาม[ขั้นตอนใน architecture.md](architecture.md#quotation-และ-approval) ถ้าล้มเหลวกลางทาง Quotation, Reservation, สถานะ Work Order, Audit Log และ Notification ต้องไม่เปลี่ยน
 - **AC-15** ถ้า Available พอทุกรายการ Part ทั้งหมดถูกจองและ Work Order เป็น IN_PROGRESS
 - **AC-16** ถ้า Available ไม่พอ ส่วนที่ขาดเกิด Part Request และ Work Order เป็น WAITING_FOR_PARTS ([Q7](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
 - **AC-17** Approval ซ้ำ และ Approval ของ Quotation ที่หมดอายุ ไม่สำเร็จและไม่เปลี่ยนข้อมูลใด
-- **AC-18** การปฏิเสธถูกบันทึกในประวัติการตัดสินใจ ไม่เกิด Reservation และ Work Order กลับไป DIAGNOSING เพื่อเสนอราคาใหม่
+- **AC-18** การปฏิเสธถูกบันทึกในประวัติการตัดสินใจ ไม่เกิด Reservation และ Work Order กลับไป DIAGNOSING ใน transaction เดียวกับที่บันทึกการปฏิเสธ เพื่อเสนอราคาใหม่ ส่วนการปฏิเสธ Quotation เพิ่มเติมยังติด [Q5](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้)
 
 ### WAITING_FOR_PARTS
 
@@ -156,32 +157,32 @@ RepairFlow ออกแบบสำหรับร้านซ่อมอุป
 
 - **AC-21** Issue ตัดจาก Reserved ของ Work Order นั้นเท่านั้น ถ้าไม่มียอดจองจะถูกปฏิเสธ และ Work Order อื่นแย่งไม่ได้
 - **AC-22** การ Issue หลายรายการสำเร็จหรือล้มเหลวพร้อมกันทั้งใบ และทุกรายการเขียน Stock Movement พร้อมต้นทุนต่อหน่วย
-- **AC-23** Part ที่ไม่ได้ใช้คืนเป็น Available ด้วย `RETURN_UNUSED`
+- **AC-23** Owner และ Technician ที่รับมอบหมายคืน Part ที่ไม่ได้ใช้เป็น Available ด้วย `RETURN_UNUSED`
 - **AC-24** Repair Damage ต้องระบุเหตุผล ไม่คิดเงิน Customer ไม่ต้องขอ Approval ใหม่ และชิ้นทดแทนใช้ `RESERVE` กับ `ISSUE` ตามปกติ ถ้าของไม่พอจะเข้าคิว Part Request และ Work Order เปลี่ยนเป็น WAITING_FOR_PARTS ได้
 - **AC-25** DOA ไม่คิดเงิน Customer และแยกไปเคลมกับผู้ขาย
 - **AC-26** ถ้า Customer ต้องจ่ายเพิ่ม ต้องผ่าน Quotation ใหม่ และ Work Order กลับไป WAITING_FOR_APPROVAL ([Q5](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
 
 ### COMPLETED
 
-- **AC-27** IN_PROGRESS เปลี่ยนเป็น COMPLETED ได้ และเขียนการแจ้ง Customer ใน transaction เดียวกัน คือ Notification ถ้า Customer มี User หรือ Customer Contact Task ถ้าไม่มี ([Q6](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
+- **AC-27** Owner และ Technician ที่รับมอบหมายเปลี่ยน IN_PROGRESS เป็น COMPLETED ได้ และเขียนการแจ้ง Customer ใน transaction เดียวกัน คือ Notification ถ้า Customer มี User หรือ Customer Contact Task ถ้าไม่มี ([Q6](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
 - **AC-28** Customer Contact Task บันทึกช่องทางและผู้ติดต่อได้
 - **AC-29** บันทึก Payment ได้โดยเก็บยอด วิธีชำระ และผู้รับเงิน รองรับการจ่ายบางส่วน และไม่มีการรับเงินจริงผ่านระบบ
 - **AC-30** Outstanding Balance เท่ากับยอดตาม Quotation ที่ได้รับ Approval หักด้วย Payment ทั้งหมดของ Work Order ([Q5](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
 
 ### DELIVERED
 
-- **AC-31** COMPLETED ที่ยังมี Outstanding Balance เปลี่ยนเป็น DELIVERED ไม่ได้ และเปลี่ยนได้เมื่อไม่มียอดค้าง
+- **AC-31** COMPLETED ที่ยังมี Outstanding Balance เปลี่ยนเป็น DELIVERED ไม่ได้ และเมื่อไม่มียอดค้าง Owner และ Receptionist เปลี่ยนได้ ส่วน Technician เปลี่ยนไม่ได้
 - **AC-32** DELIVERED เป็นจุดสิ้นสุด เปลี่ยนสถานะต่อไม่ได้ และ Customer เห็น Status History ครบ
 
 ### CANCELLED
 
-- **AC-33** ยกเลิกได้จาก RECEIVED, DIAGNOSING, WAITING_FOR_APPROVAL, WAITING_FOR_PARTS และ IN_PROGRESS โดยต้องระบุเหตุผล ส่วน COMPLETED และ DELIVERED ยกเลิกไม่ได้
+- **AC-33** Owner และ Receptionist ยกเลิกได้จาก RECEIVED, DIAGNOSING, WAITING_FOR_APPROVAL, WAITING_FOR_PARTS และ IN_PROGRESS โดยต้องระบุเหตุผล ส่วน Technician ยกเลิกไม่ได้ และ COMPLETED กับ DELIVERED ยกเลิกไม่ได้
 - **AC-34** การยกเลิกคืน Reservation ที่ยังไม่ถูกเบิกกลับเป็น Available ด้วย `RELEASE`
 - **AC-35** CANCELLED ยังไม่จบงาน ต้องเปลี่ยนเป็น DELIVERED เมื่อคืน Device ([Q1](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
 
 ### ทั้ง Workflow
 
-- **AC-36** Work Order เดินจาก RECEIVED ถึง DELIVERED บน URL จริงได้ทุกบทบาท ([Q2](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
+- **AC-36** Work Order เดินจาก RECEIVED ถึง DELIVERED บน URL จริงได้ทุกบทบาท โดย Receptionist เปิดงาน มอบหมาย ส่ง Quotation รับ Payment และคืน Device ส่วน Technician ที่รับมอบหมายทำสถานะงานซ่อมและ Issue Part และ Customer ตอบ Quotation
 
 ## ปัญหาและสถานการณ์ที่พิสูจน์ได้
 
@@ -230,29 +231,20 @@ RepairFlow ออกแบบสำหรับร้านซ่อมอุป
 
 ### ตารางสิทธิ์
 
-[ตารางสิทธิ์ใน architecture.md](architecture.md#authentication-และ-authorization) ยังเป็นค่าเริ่มต้น เจ้าของโปรเจกต์ยังไม่ได้ยืนยันแถวที่อนุมาน ตารางนี้สรุปว่าเอกสารตั้งต้นรองรับส่วนใดบ้าง ค่าทั้งหมดอยู่ในตารางสิทธิ์ และห้ามถือว่าค่าที่อนุมานเป็นข้อสรุป
-
-| การกระทำ | เอกสารตั้งต้นระบุ | ยังเป็นค่าอนุมาน |
-|---|---|---|
-| ดู Work Order | Customer ดูของตนเท่านั้น | Owner, Receptionist และ Technician เห็นทั้งร้าน |
-| สร้าง Work Order และ Customer | Receptionist | Owner, Technician และ Customer |
-| เปลี่ยนสถานะงาน, Issue Part | Technician ทำได้ | ขอบเขต "เฉพาะงานที่รับมอบหมาย" ซึ่ง GLOSSARY รองรับแต่เอกสารตั้งต้นไม่ระบุ, Owner, Receptionist และ Customer |
-| ออก Quotation | Receptionist | Owner, Technician และ Customer |
-| ตอบ Quotation | Customer ตอบของตนเอง | การบันทึกแทนของ Owner และ Receptionist, Technician |
-| บันทึก Payment | ไม่ระบุบทบาท | ทั้งแถว |
-| ปรับยอดจากการนับ, Scrap, จัดลำดับคิว | ไม่ระบุบทบาท | ทั้งแถว |
-| รายงาน, จัดการ User | Owner | Receptionist, Technician และ Customer |
+เจ้าของโปรเจกต์ทบทวนและยืนยัน[ตารางสิทธิ์ใน architecture.md](architecture.md#authentication-และ-authorization)เมื่อ 1 พ.ย. 2569 เหลือเพียงการตีความสองข้อที่ระบุใต้ตารางให้เจ้าของโปรเจกต์ตรวจดู
 
 ### คำถามที่ Acceptance Criteria ยังตอบไม่ได้
 
 | รหัส | คำถาม | กระทบ |
 |---|---|---|
 | Q1 | CANCELLED เปลี่ยนเป็น DELIVERED ได้หรือไม่ถ้ายังมี Outstanding Balance เช่น Quotation ได้รับ Approval แล้วยกเลิกก่อนจ่าย แผนภาพไม่มีเงื่อนไขยอดค้างที่เส้นนี้ แต่กฎใน GLOSSARY และ architecture ห้าม Delivered ทุกกรณี | AC-30, AC-35 |
-| Q2 | ใครเปลี่ยน COMPLETED เป็น DELIVERED, ใครยกเลิก Work Order และใครมอบหมาย Technician ตารางสิทธิ์ให้ Receptionist เปลี่ยนสถานะไม่ได้และให้ Technician บันทึก Payment ไม่ได้ ทั้งที่ Receptionist เป็นคนรับเครื่อง | AC-09, AC-33, AC-36 |
-| Q3 | การส่ง Quotation เปลี่ยน Work Order เป็น WAITING_FOR_APPROVAL ในตัวหรือไม่ AC-11 สมมติว่าเปลี่ยน เพราะ Receptionist ออก Quotation ได้แต่เปลี่ยนสถานะไม่ได้ | AC-11 |
+| Q2 | ปิดแล้ว 1 พ.ย. 2569: Owner และ Receptionist เปลี่ยนเป็น DELIVERED, ยกเลิก Work Order และมอบหมาย Technician | AC-09, AC-31, AC-33, AC-36 |
+| Q3 | ปิดแล้ว 1 พ.ย. 2569: การส่ง Quotation เปลี่ยน Work Order เป็น WAITING_FOR_APPROVAL ในตัว | AC-11 |
 | Q4 | WAITING_FOR_PARTS เปลี่ยนเป็น IN_PROGRESS อัตโนมัติเมื่อจัดสรรครบหรือให้คนกด และต้องจัดสรรครบทุกรายการหรือไม่ | AC-20 |
 | Q5 | Quotation เพิ่มเติมระหว่าง IN_PROGRESS บวกกับฉบับเดิมใน Outstanding Balance หรือไม่ และถ้าถูกปฏิเสธ Work Order ต้องกลับ DIAGNOSING เหมือนฉบับแรกหรือไม่ ทั้งที่มี Approval และ Part ที่เบิกแล้ว | AC-18, AC-26, AC-30 |
 | Q6 | Customer ที่มี User แต่ยังไม่รับทราบเหตุการณ์ต้องเกิด Customer Contact Task หรือไม่ GLOSSARY ระบุว่าต้องเกิด แต่ architecture ระบุเฉพาะ Customer ที่ไม่มีบัญชี และไม่มี scheduler ให้ตรวจ | AC-27 |
 | Q7 | ถ้าต้องการ 3 ชิ้นแต่ Available เหลือ 2 จะจอง 2 แล้วขอเพิ่ม 1 หรือเข้าคิวทั้ง 3 ตัวอย่าง SQL ที่ใช้ `available >= :qty` ทำแบบหลัง แต่ข้อความระบุว่าส่วนที่ขาดเข้าคิว | AC-16 |
-| Q8 | เหตุผลที่ไม่ทำ MFA และ OTP คืออะไร เอกสารระบุเป็นข้อจำกัดโดยไม่มีเหตุผล | ฟีเจอร์ที่เลือกไม่ทำ |
+| Q8 | ปิดแล้ว 1 พ.ย. 2569: เจ้าของโปรเจกต์ให้เหตุผลไว้ใน[ฟีเจอร์ที่เลือกไม่ทำ](#ฟีเจอร์ที่เลือกไม่ทำ) | ฟีเจอร์ที่เลือกไม่ทำ |
 | Q9 | Reserved ที่ยังไม่ถูกเบิกตอน COMPLETED และ Part Request ที่ค้างตอนยกเลิกต้องทำอย่างไร `RELEASE` ระบุเฉพาะตอนยกเลิกงาน และการยกเลิกระบุเฉพาะ Reservation | AC-27, AC-34 |
+| Q10 | ปิดแล้ว 1 พ.ย. 2569: WAITING_FOR_APPROVAL เปลี่ยนเป็น DIAGNOSING ใน transaction เดียวกับที่บันทึกการปฏิเสธ เหมือน Approval | AC-18 |
+| Q11 | ปิดแล้ว 1 พ.ย. 2569: `RETURN_UNUSED` เป็นของ Owner และ Technician ที่รับมอบหมาย ส่วน `INSPECT_PASS`, `INSPECT_FAIL`, `VENDOR_SEND`, `VENDOR_RESOLVE` และ `MARK_DEFECTIVE` ของ Part ที่ไม่ผูกกับ Work Order เป็นของ Owner เท่านั้น | AC-23 |
