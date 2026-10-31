@@ -114,15 +114,29 @@ Authorization อยู่ใน backend เป็น policy function ของ�
 | การกระทำ | Owner | Receptionist | Technician | Customer |
 |---|---|---|---|---|
 | ดู Work Order | ทั้งร้าน | ทั้งร้าน | ทั้งร้าน | ของตนเท่านั้น |
-| สร้าง Work Order และ Customer | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
-| เปลี่ยนสถานะงาน, Issue Part | ได้ | ไม่ได้ | เฉพาะงานที่รับมอบหมาย | ไม่ได้ |
-| ออก Quotation | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
+| สร้าง Work Order และ Customer (เริ่มที่ RECEIVED) | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
+| เปลี่ยนสถานะงานซ่อม: RECEIVED → DIAGNOSING, WAITING_FOR_PARTS ↔ IN_PROGRESS, IN_PROGRESS → COMPLETED | ได้ | ไม่ได้ | เฉพาะงานที่รับมอบหมาย | ไม่ได้ |
+| Issue Part | ได้ | ไม่ได้ | เฉพาะงานที่รับมอบหมาย | ไม่ได้ |
+| บันทึกผลการซ่อม, `MARK_DEFECTIVE` ของ Part ในงาน, `RETURN_UNUSED` | ได้ | ไม่ได้ | เฉพาะงานที่รับมอบหมาย | ไม่ได้ |
+| ออก Quotation: การส่งเปลี่ยน DIAGNOSING หรือ IN_PROGRESS → WAITING_FOR_APPROVAL | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
 | ตอบ Quotation | บันทึกแทน | บันทึกแทน | ไม่ได้ | ของตนเท่านั้น |
+| มอบหมาย Technician, ยกเลิก Work Order | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
+| เปลี่ยนเป็น DELIVERED: จาก COMPLETED หรือ CANCELLED | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
 | บันทึก Payment | ได้ | ได้ | ไม่ได้ | ไม่ได้ |
+| ดูยอด Part | ได้ | ได้ | ได้ | ไม่ได้ |
+| รายการ Part, `RECEIPT` | ได้ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
+| `MARK_DEFECTIVE` ของ Part ที่ไม่ผูกกับ Work Order เช่น Store Damage | ได้ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
+| `INSPECT_PASS`, `INSPECT_FAIL`, `VENDOR_SEND`, `VENDOR_RESOLVE` | ได้ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
 | ปรับยอดจากการนับ, Scrap, จัดลำดับคิว | ได้ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
-| รายงาน, จัดการ User | ได้ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
+| รายงาน, จัดการ User ของพนักงาน | ได้ | ไม่ได้ | ไม่ได้ | ไม่ได้ |
 
-แถวที่ไม่ได้ระบุชัดในเอกสารตั้งต้นเป็นค่าเริ่มต้นที่อนุมานจากหน้าที่ของแต่ละบทบาท ต้องทบทวนตอนเขียน Acceptance Criteria
+เจ้าของโปรเจกต์ทบทวนและยืนยันตารางนี้เมื่อ 1 พ.ย. 2569
+
+- **การตีความที่เจ้าของโปรเจกต์ยังไม่ได้ทบทวนแยก:** สองข้อนี้ตีความจากการตัดสินใจเรื่องงานหน้าร้าน คือ "การรับเครื่อง" ของ Receptionist หมายถึงการเริ่ม Work Order ที่ RECEIVED เท่านั้น ไม่รวม RECEIVED → DIAGNOSING และ Quotation เพิ่มเติมที่เปลี่ยน IN_PROGRESS → WAITING_FOR_APPROVAL นับเป็นการส่ง Quotation
+
+- **จัดการ User ของพนักงาน:** ไม่รวมลิงก์เชิญและ reset ของ Customer ซึ่ง Receptionist ออกให้ได้ตามหัวข้อลิงก์เชิญและ reset ด้านบน
+- **Technician:** เห็น Work Order ทั้งร้าน แต่เขียนได้เฉพาะงานที่รับมอบหมาย
+- **ผลของการตอบ Quotation:** การเปลี่ยนจาก WAITING_FOR_APPROVAL เป็น IN_PROGRESS, WAITING_FOR_PARTS หรือ DIAGNOSING เกิดใน [transaction ที่บันทึกคำตอบ](#quotation-และ-approval) ตามแถวตอบ Quotation จึงไม่ใช่สิทธิ์เปลี่ยนสถานะโดยตรง
 
 ## Workflow ของ Work Order
 
@@ -167,6 +181,8 @@ stateDiagram-v2
 2. จอง Part ทุกรายการ ส่วนที่ขาดสร้าง Part Request
 3. เปลี่ยนสถานะ Work Order เป็น `IN_PROGRESS` หรือ `WAITING_FOR_PARTS`
 4. เขียน Audit Log และ Notification
+
+การปฏิเสธเปลี่ยน Work Order จาก WAITING_FOR_APPROVAL เป็น DIAGNOSING ใน transaction เดียวกับที่บันทึกการปฏิเสธ ส่วนการปฏิเสธ Quotation เพิ่มเติมยังเป็นคำถามเปิด Q5 ใน [PRD](prd.md#คำถามที่-acceptance-criteria-ยังตอบไม่ได้)
 
 ## Inventory
 
