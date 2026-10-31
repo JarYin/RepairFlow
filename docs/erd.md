@@ -359,7 +359,7 @@ erDiagram
 
 - การอนุมัติใช้ `UPDATE quotations ... WHERE status = 'SENT' AND expires_at > now()` ตาม [architecture.md](architecture.md#quotation-และ-approval) ใบหมดอายุจึงไม่ต้องมีสถานะของตัวเอง
 - Staff-recorded Approval คือแถวที่ `channel` ไม่ใช่ `PORTAL` และ `recorded_by_user_id` เป็นพนักงาน
-- Outstanding Balance คำนวณจากผลรวม `total_satang` ของ Quotation ที่ได้รับ Approval ลบผลรวม `payments.amount_satang` ไม่เก็บเป็นคอลัมน์ และถือว่า Quotation ที่เสนอเพิ่มระหว่างซ่อมเป็นยอดบวกเพิ่ม
+- Outstanding Balance คำนวณจากผลรวม `total_satang` ของ Quotation ที่ได้รับ Approval ลบผลรวม `payments.amount_satang` ไม่เก็บเป็นคอลัมน์ และถือว่า Quotation ที่เสนอเพิ่มระหว่างซ่อมเป็นยอดบวกเพิ่มจนกว่า[Q5 ใน PRD](prd.md#คำถามที่-acceptance-criteria-ยังตอบไม่ได้)จะตอบเป็นอย่างอื่น
 
 ### Inventory
 
@@ -598,16 +598,16 @@ Inventory มาก่อน Quotation ตาม Roadmap ดังนั้น f
 
 ## เรื่องที่ต้องตัดสินใจ
 
-ERD นี้เลือกทางที่กระทบน้อยที่สุดไว้ก่อน รายการต่อไปนี้ควรยืนยันก่อนหรือระหว่าง Sprint ที่ระบุ
+ERD นี้เลือกทางที่กระทบน้อยที่สุดไว้ก่อน รายการต่อไปนี้ควรยืนยันก่อนหรือระหว่าง Sprint ที่ระบุ รหัส Q ชี้ไปยัง[คำถามใน PRD](prd.md#คำถามที่-acceptance-criteria-ยังตอบไม่ได้)เรื่องเดียวกัน
 
 ### เอกสารไม่ตรงกัน
 
 | เรื่อง | ที่เอกสารเขียน | ที่ ERD เลือก | Sprint |
 |---|---|---|---|
 | Reservation ที่ไม่มี Approval | GLOSSARY และ `RESERVE` ใน `architecture.md` บอกว่าเกิดหลัง Approval แต่ชิ้นทดแทนใช้ `RESERVE` โดยไม่ต้องขอ Approval ใหม่ | `quotation_item_id` เป็น null ได้ และใช้ `replaces_movement_id` แทน | 3 |
-| Reservation ที่ของไม่พอ | GLOSSARY บอกว่า Reservation กลายเป็น Part Request แต่ `architecture.md` บอกว่าเฉพาะส่วนที่ขาด | ใช้ตาม `architecture.md` รายการเดียวมีได้ทั้ง Reservation และ Part Request | 3 |
-| Delivered ของงานที่ยกเลิก | GLOSSARY และหัวข้อการเงินห้าม Delivered ทุกกรณีถ้ามี Outstanding Balance แต่ `CANCELLED → DELIVERED` ไม่มีเงื่อนไข งานที่ยกเลิกหลัง Approval จึงอาจคืนเครื่องไม่ได้ | ไม่กระทบ schema ต้องกำหนดกฎใน transition table | 4 |
-| Customer Contact Task | GLOSSARY รวม Customer ที่มี User แต่ยังไม่รับทราบ ส่วน `architecture.md` พูดถึงเฉพาะ Customer ที่ไม่มีบัญชี และไม่มีงานตามเวลาที่ตรวจการไม่รับทราบ | ตารางรองรับทั้งสองแบบ | 4 |
+| Reservation ที่ของไม่พอ | GLOSSARY บอกว่า Reservation กลายเป็น Part Request แต่ `architecture.md` บอกว่าเฉพาะส่วนที่ขาด | ใช้ตาม `architecture.md` รายการเดียวมีได้ทั้ง Reservation และ Part Request ซึ่งรองรับทั้งสองคำตอบของ Q7 | 3 |
+| Delivered ของงานที่ยกเลิก | GLOSSARY และหัวข้อการเงินห้าม Delivered ทุกกรณีถ้ามี Outstanding Balance แต่ `CANCELLED → DELIVERED` ไม่มีเงื่อนไข งานที่ยกเลิกหลัง Approval จึงอาจคืนเครื่องไม่ได้ | ไม่กระทบ schema ต้องกำหนดกฎใน transition table (Q1) | 4 |
+| Customer Contact Task | GLOSSARY รวม Customer ที่มี User แต่ยังไม่รับทราบ ส่วน `architecture.md` พูดถึงเฉพาะ Customer ที่ไม่มีบัญชี และไม่มีงานตามเวลาที่ตรวจการไม่รับทราบ | ตารางรองรับทั้งสองแบบ (Q6) | 4 |
 | Audit Log ฝั่ง platform | GLOSSARY มีคำเดียว แต่ `architecture.md` แยก Audit Log ของฝั่ง platform และ `app_platform` เข้าตารางของร้านไม่ได้ | แยกเป็น 2 ตาราง | 2 |
 | การกู้บัญชี Owner | ADR-0003 ให้กู้ผ่าน CLI ของ Platform Admin แต่ ADR-0009 ให้ role ของ Platform Admin เข้าถึงเฉพาะตาราง platform จึงแก้ `users` ไม่ได้ | ยังไม่กำหนด ต้องระบุว่า CLI ใช้ role ใด และเขียน Audit Log ฝั่งใด | 2 |
 | "ร้านทดลอง" ที่ถูกลบ | `architecture.md` ใช้คำนี้แต่ GLOSSARY ไม่มี และคำว่า Test shop อยู่ใน _Avoid_ ของ Demo Shop ทั้งยังไม่นิยามคำว่าไม่ใช้งาน | เพิ่ม `shops.last_active_at` และถือว่าหมายถึง Shop ที่อยู่ใน Trial | 6 |
@@ -624,4 +624,4 @@ ERD นี้เลือกทางที่กระทบน้อยที�
 | เจ้าของ `idempotency_keys` | ใช้กับ Issue, Approval และ Payment ซึ่งอยู่คนละโมดูล แต่ไม่มีโมดูลใดรับผิดชอบ | ตารางเดียว และยังต้องเลือกโมดูลล่าง เช่น `database` | 3 |
 | ผู้ขาย | `architecture.md` อ้างถึงผู้ขายใน `VENDOR_SEND`, `VENDOR_RESOLVE` และ DOA แต่ GLOSSARY ไม่มี และใบสั่งซื้ออยู่นอก MVP | ไม่มีตาราง ใช้ `stock_movements.reason` | 3 |
 | Part ที่จองแล้วเสียในคลัง | `MARK_DEFECTIVE` ออกได้จาก Available หรืองานเท่านั้น และ `RELEASE` ใช้ตอนยกเลิกงาน จึงไม่มีทางย้ายยอด Reserved ที่เสีย | เป็นไปตามตาราง ถ้าต้องรองรับต้องแก้ `architecture.md` ก่อน | 3 |
-| Part Request ของงานที่ยกเลิก | `architecture.md` พูดถึงการคืน Reservation เท่านั้น | เพิ่มสถานะ `CANCELLED` | 3 |
+| Part Request ของงานที่ยกเลิก | `architecture.md` พูดถึงการคืน Reservation เท่านั้น | เพิ่มสถานะ `CANCELLED` (Q9) | 3 |
