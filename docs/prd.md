@@ -28,7 +28,7 @@ RepairFlow ออกแบบสำหรับร้านซ่อมอุป
 | Platform Admin | ดูและระงับ Shop โดยอ่านข้อมูลงานซ่อมไม่ได้ ([ADR-0009](adr/0009-platform-admin-cannot-read-shop-data.md)) |
 | ผู้ชม Portfolio | ทดลอง Demo Shop ได้ครบทุกบทบาท และเห็นหลักฐานว่าระบบแก้ปัญหาได้จริง |
 
-สิทธิ์ของแต่ละบทบาทอยู่ใน[ตารางสิทธิ์](architecture.md#authentication-และ-authorization) ซึ่งเจ้าของโปรเจกต์ทบทวนแล้ว และมีส่วนที่[รอการยืนยัน](#สิ่งที่รอการยืนยัน)เหลืออยู่
+สิทธิ์ของแต่ละบทบาทอยู่ใน[ตารางสิทธิ์](architecture.md#authentication-และ-authorization) ซึ่งเจ้าของโปรเจกต์ทบทวนและยืนยันแล้ว
 
 ## ขอบเขต MVP
 
@@ -64,7 +64,8 @@ RepairFlow ออกแบบสำหรับร้านซ่อมอุป
 | Microservices, Redis และ Queue | ระบบยังเล็ก และ Postgres ตัวเดียวรับประกันความถูกต้องได้ | เอกสารตั้งต้น, [ADR-0002](adr/0002-synchronous-module-calls-with-shared-transaction.md) |
 | Rollup ของรายงาน | Query สดก่อน และค่อยเพิ่มเมื่อมีผลวัดว่าช้า | [architecture.md](architecture.md#รายงาน) |
 | Preview Deployment | ไม่ควรชี้ไปฐานข้อมูล production และการแยกฐานข้อมูลต่อ PR กิน quota ของ Neon | [architecture.md](architecture.md#delivery) |
-| MFA และ OTP | เอกสารต้นทางระบุว่าไม่ทำ แต่ไม่ได้ให้เหตุผล ดู [Q8](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้) | [ADR-0004](adr/0004-jwt-in-httponly-cookies-checked-against-db.md), [ADR-0003](adr/0003-per-shop-user-accounts.md) |
+| OTP | ต้องมีช่องทางอีเมลหรือ SMS ซึ่งโปรเจกต์ฟรีนี้ไม่มี | การตัดสินใจของเจ้าของโปรเจกต์ 1 พ.ย. 2569, [ADR-0006](adr/0006-in-app-notifications-only.md) |
+| MFA | เพิ่มงานลงทะเบียนและกู้คืนเกินขอบเขต MVP และเลือกใช้ httpOnly cookie ที่ตรวจกับ DB เป็นมาตรการหลักแล้ว | การตัดสินใจของเจ้าของโปรเจกต์ 1 พ.ย. 2569, [ADR-0004](adr/0004-jwt-in-httponly-cookies-checked-against-db.md) |
 
 ## User Stories
 
@@ -145,7 +146,7 @@ RepairFlow ออกแบบสำหรับร้านซ่อมอุป
 - **AC-15** ถ้า Available พอทุกรายการ Part ทั้งหมดถูกจองและ Work Order เป็น IN_PROGRESS
 - **AC-16** ถ้า Available ไม่พอ ส่วนที่ขาดเกิด Part Request และ Work Order เป็น WAITING_FOR_PARTS ([Q7](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
 - **AC-17** Approval ซ้ำ และ Approval ของ Quotation ที่หมดอายุ ไม่สำเร็จและไม่เปลี่ยนข้อมูลใด
-- **AC-18** การปฏิเสธถูกบันทึกในประวัติการตัดสินใจ ไม่เกิด Reservation และ Work Order กลับไป DIAGNOSING เพื่อเสนอราคาใหม่ ([Q5, Q10](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
+- **AC-18** การปฏิเสธถูกบันทึกในประวัติการตัดสินใจ ไม่เกิด Reservation และ Work Order กลับไป DIAGNOSING ใน transaction เดียวกับที่บันทึกการปฏิเสธ เพื่อเสนอราคาใหม่ ส่วนการปฏิเสธ Quotation เพิ่มเติมยังติด [Q5](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้)
 
 ### WAITING_FOR_PARTS
 
@@ -156,7 +157,7 @@ RepairFlow ออกแบบสำหรับร้านซ่อมอุป
 
 - **AC-21** Issue ตัดจาก Reserved ของ Work Order นั้นเท่านั้น ถ้าไม่มียอดจองจะถูกปฏิเสธ และ Work Order อื่นแย่งไม่ได้
 - **AC-22** การ Issue หลายรายการสำเร็จหรือล้มเหลวพร้อมกันทั้งใบ และทุกรายการเขียน Stock Movement พร้อมต้นทุนต่อหน่วย
-- **AC-23** Part ที่ไม่ได้ใช้คืนเป็น Available ด้วย `RETURN_UNUSED` (ผู้ทำ: [Q11](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
+- **AC-23** Owner และ Technician ที่รับมอบหมายคืน Part ที่ไม่ได้ใช้เป็น Available ด้วย `RETURN_UNUSED`
 - **AC-24** Repair Damage ต้องระบุเหตุผล ไม่คิดเงิน Customer ไม่ต้องขอ Approval ใหม่ และชิ้นทดแทนใช้ `RESERVE` กับ `ISSUE` ตามปกติ ถ้าของไม่พอจะเข้าคิว Part Request และ Work Order เปลี่ยนเป็น WAITING_FOR_PARTS ได้
 - **AC-25** DOA ไม่คิดเงิน Customer และแยกไปเคลมกับผู้ขาย
 - **AC-26** ถ้า Customer ต้องจ่ายเพิ่ม ต้องผ่าน Quotation ใหม่ และ Work Order กลับไป WAITING_FOR_APPROVAL ([Q5](#คำถามที่-acceptance-criteria-ยังตอบไม่ได้))
@@ -230,10 +231,7 @@ RepairFlow ออกแบบสำหรับร้านซ่อมอุป
 
 ### ตารางสิทธิ์
 
-เจ้าของโปรเจกต์ทบทวน[ตารางสิทธิ์ใน architecture.md](architecture.md#authentication-และ-authorization)เมื่อ 1 พ.ย. 2569 และสิ่งที่ยังไม่ได้ตัดสินคือ:
-
-- ค่าของ Owner (ได้) และ Technician (ไม่ได้) ในแถวสร้าง Work Order และ Customer กับแถวออก Quotation ซึ่งยังเป็นค่าอนุมาน
-- ผู้ทำใน Q10 และ Q11
+เจ้าของโปรเจกต์ทบทวนและยืนยัน[ตารางสิทธิ์ใน architecture.md](architecture.md#authentication-และ-authorization)เมื่อ 1 พ.ย. 2569 เหลือเพียงการตีความสองข้อที่ระบุใต้ตารางให้เจ้าของโปรเจกต์ตรวจดู
 
 ### คำถามที่ Acceptance Criteria ยังตอบไม่ได้
 
@@ -246,7 +244,7 @@ RepairFlow ออกแบบสำหรับร้านซ่อมอุป
 | Q5 | Quotation เพิ่มเติมระหว่าง IN_PROGRESS บวกกับฉบับเดิมใน Outstanding Balance หรือไม่ และถ้าถูกปฏิเสธ Work Order ต้องกลับ DIAGNOSING เหมือนฉบับแรกหรือไม่ ทั้งที่มี Approval และ Part ที่เบิกแล้ว | AC-18, AC-26, AC-30 |
 | Q6 | Customer ที่มี User แต่ยังไม่รับทราบเหตุการณ์ต้องเกิด Customer Contact Task หรือไม่ GLOSSARY ระบุว่าต้องเกิด แต่ architecture ระบุเฉพาะ Customer ที่ไม่มีบัญชี และไม่มี scheduler ให้ตรวจ | AC-27 |
 | Q7 | ถ้าต้องการ 3 ชิ้นแต่ Available เหลือ 2 จะจอง 2 แล้วขอเพิ่ม 1 หรือเข้าคิวทั้ง 3 ตัวอย่าง SQL ที่ใช้ `available >= :qty` ทำแบบหลัง แต่ข้อความระบุว่าส่วนที่ขาดเข้าคิว | AC-16 |
-| Q8 | เหตุผลที่ไม่ทำ MFA และ OTP คืออะไร เอกสารระบุเป็นข้อจำกัดโดยไม่มีเหตุผล | ฟีเจอร์ที่เลือกไม่ทำ |
+| Q8 | ปิดแล้ว 1 พ.ย. 2569: เจ้าของโปรเจกต์ให้เหตุผลไว้ใน[ฟีเจอร์ที่เลือกไม่ทำ](#ฟีเจอร์ที่เลือกไม่ทำ) | ฟีเจอร์ที่เลือกไม่ทำ |
 | Q9 | Reserved ที่ยังไม่ถูกเบิกตอน COMPLETED และ Part Request ที่ค้างตอนยกเลิกต้องทำอย่างไร `RELEASE` ระบุเฉพาะตอนยกเลิกงาน และการยกเลิกระบุเฉพาะ Reservation | AC-27, AC-34 |
-| Q10 | เมื่อถูกปฏิเสธ WAITING_FOR_APPROVAL เปลี่ยนเป็น DIAGNOSING ในตัวเหมือน Approval หรือให้ Owner หรือ Technician ที่รับมอบหมายเป็นผู้เปลี่ยน แผนภาพระบุปลายทาง แต่ transaction ระบุเฉพาะ Approval และ DIAGNOSING เป็นสถานะงานซ่อมที่ Receptionist และ Customer เปลี่ยนโดยตรงไม่ได้ | AC-18 |
-| Q11 | ใครทำ `RETURN_UNUSED`, `INSPECT_PASS`, `INSPECT_FAIL`, `VENDOR_SEND` และ `VENDOR_RESOLVE` ตารางสิทธิ์ยังไม่มีแถวของการกระทำเหล่านี้ | AC-23 |
+| Q10 | ปิดแล้ว 1 พ.ย. 2569: WAITING_FOR_APPROVAL เปลี่ยนเป็น DIAGNOSING ใน transaction เดียวกับที่บันทึกการปฏิเสธ เหมือน Approval | AC-18 |
+| Q11 | ปิดแล้ว 1 พ.ย. 2569: `RETURN_UNUSED` เป็นของ Owner และ Technician ที่รับมอบหมาย ส่วน `INSPECT_PASS`, `INSPECT_FAIL`, `VENDOR_SEND`, `VENDOR_RESOLVE` และ `MARK_DEFECTIVE` ของ Part ที่ไม่ผูกกับ Work Order เป็นของ Owner เท่านั้น | AC-23 |
