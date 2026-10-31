@@ -64,6 +64,7 @@ Backend เป็น Modular Monolith โมดูลเรียกกันแ
 
 - โมดูลห้าม query ตารางของโมดูลอื่น ยกเว้น `reports`
 - กราฟการเรียกต้องไม่มีวงจร และ CI บังคับด้วย dependency-cruiser
+- โมดูล import โมดูลอื่นได้จากไฟล์ที่อยู่ระดับบนสุดของโมดูลนั้นเท่านั้น ห้าม import จากโฟลเดอร์ย่อย เพราะ dependency-cruiser จะมองไม่เห็นวงจรที่ผ่านเส้นทางแบบนั้น
 - `work-orders` ต้องรู้ Outstanding Balance ก่อนเปลี่ยนเป็น Delivered แต่ `payments` อยู่สูงกว่าในกราฟ จึงให้ `work-orders` ประกาศ port และให้ `payments` เป็นผู้ implement
 
 ## Tenancy และการเข้าถึงฐานข้อมูล
