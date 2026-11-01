@@ -13,6 +13,7 @@
     "test:e2e": "pnpm --filter @repairflow/contracts build && pnpm --filter api test:e2e",
     "test:integration": "pnpm --filter api test:integration",
     "test:playwright": "pnpm --filter web test:playwright",
+    "test:smoke": "pnpm --filter @repairflow/contracts build && pnpm --filter web test:smoke",
     "db:up": "docker compose up -d --wait postgres",
     "db:migrate": "pnpm --filter api db:migrate",
     "openapi": "pnpm --filter @repairflow/contracts openapi"
