@@ -12,7 +12,7 @@
 - [x] รัน migration ในเครื่องได้ด้วยคำสั่งเดียว
 - [x] Migration สร้าง `app_tenant` แบบไม่มีรหัสผ่าน และตารางทดลองที่เปิด RLS กับ `FORCE`
 - [x] โมดูล `database` ใช้ `pg` Pool กับ `attachDatabasePool` และส่ง transaction ต่อผ่าน AsyncLocalStorage ตาม ADR-0002
-- [ ] CI รัน integration test กับ Postgres ใน container โดยไม่แตะ Neon
+- [x] CI รัน integration test กับ Postgres ใน container โดยไม่แตะ Neon
 - [x] เทสต์: `app_tenant` มี `rolsuper = false` และ `rolbypassrls = false`
 - [x] เทสต์: งานที่รันพร้อมกันเห็นเฉพาะแถวของ Shop ตนเอง
 - [x] เทสต์: หลัง transaction จบ ค่า Shop ไม่ติดไปกับ connection ถัดไป
@@ -41,7 +41,14 @@ pnpm test:integration
 ### ช่องที่ยังไม่ติ๊ก
 
 - **รุ่น Postgres:** ใช้ `postgres:18-alpine` (ได้ 18.6) เพราะ [เอกสาร Neon CLI](https://neon.com/docs/cli/projects) ระบุว่าโปรเจกต์ใหม่ใช้ Postgres 18 เป็นค่าเริ่มต้น เจ้าของโปรเจกต์ต้องยืนยันว่าโปรเจกต์ Neon จริงเป็นรุ่น 18 ด้วย เพราะ Neon เปลี่ยนรุ่นหลักของโปรเจกต์ภายหลังไม่ได้
-- **CI:** เพิ่มขั้นตอนใน workflow แล้ว และรันคำสั่งเดียวกันในเครื่องผ่าน แต่ยังไม่เห็นผลบน GitHub Actions เพราะยังไม่ได้เปิด PR
+
+### หลักฐาน CI
+
+[PR #3](https://github.com/JarYin/RepairFlow/pull/3) ปิดโดยไม่ merge และ `verify` ผ่านใน [run 41328988991](https://github.com/JarYin/RepairFlow/actions/runs/41328988991) ที่ commit `cf0461f` ขั้น `Integration tests` รันกับ Postgres ใน container และผ่าน 19 ข้อ workflow ไม่ใช้ secret
+
+### เทสต์ `module-graph.spec.ts` ที่ล้มเหลวเป็นบางครั้ง
+
+เทสต์นี้สร้าง process ของ dependency-cruiser ใหม่ทุกข้อ ใช้เวลาราว 1.2 วินาทีตอนเครื่องว่าง แต่ถึง 28 วินาทีเมื่อดิสก์และหน่วยความจำถูกแย่งใช้ จึงเกินค่าเริ่มต้น 5 วินาที ความล้มเหลวนี้มีอยู่แล้วที่ `7dbb3e5` และไม่เกี่ยวกับโมดูล `database` จึงตั้ง timeout 60 วินาทีเฉพาะ spec นี้
 
 ### ผลการทำให้พังโดยตั้งใจ
 
