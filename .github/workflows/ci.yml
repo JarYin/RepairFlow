@@ -40,6 +40,17 @@ jobs:
       - name: API e2e tests
         run: pnpm test:e2e
 
+      # Postgres runs in a container from compose.yaml, the same one as local
+      # development. It has no password, so this needs no secret and never sees Neon.
+      - name: Start Postgres
+        run: pnpm db:up
+
+      - name: Migrate
+        run: pnpm db:migrate
+
+      - name: Integration tests
+        run: pnpm test:integration
+
       - name: Install Playwright browser
         run: pnpm --filter web exec playwright install --with-deps chromium
 
