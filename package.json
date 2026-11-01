@@ -12,6 +12,7 @@
     "test": "pnpm --filter @repairflow/contracts build && pnpm -r test",
     "test:e2e": "pnpm --filter @repairflow/contracts build && pnpm --filter api test:e2e",
     "test:playwright": "pnpm --filter web test:playwright",
+    "test:smoke": "pnpm --filter @repairflow/contracts build && pnpm --filter web test:smoke",
     "openapi": "pnpm --filter @repairflow/contracts openapi"
   }
 }

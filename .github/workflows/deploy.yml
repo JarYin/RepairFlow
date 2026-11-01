@@ -1,0 +1,103 @@
+name: Deploy
+
+# Merging to main is what starts production. Steps run in order in one job, so a
+# failed step stops every step after it. Setup and rollback are in the README.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# One deploy at a time, oldest merge first. queue: max keeps every waiting run:
+# without it GitHub cancels a waiting run as soon as a newer one starts waiting.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+  queue: max
+
+env:
+  VERCEL_CLI_VERSION: 65.9.0
+  VERCEL_TELEMETRY_DISABLED: "1"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Stops here, before anything changes, while the Environment is incomplete.
+      - name: Check that the production configuration is set
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_API_PROJECT_ID: ${{ vars.VERCEL_API_PROJECT_ID }}
+          VERCEL_WEB_PROJECT_ID: ${{ vars.VERCEL_WEB_PROJECT_ID }}
+          API_PRODUCTION_ORIGIN: ${{ vars.API_PRODUCTION_ORIGIN }}
+          WEB_PRODUCTION_ORIGIN: ${{ vars.WEB_PRODUCTION_ORIGIN }}
+        run: |
+          missing=0
+          for name in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_API_PROJECT_ID \
+            VERCEL_WEB_PROJECT_ID API_PRODUCTION_ORIGIN WEB_PRODUCTION_ORIGIN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not set in the GitHub Environment production"
+              missing=1
+            fi
+          done
+          exit "$missing"
+
+      # Takes the pnpm version from packageManager in package.json.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      # Outside the workspace, so it cannot touch the lockfile or the upload to Vercel.
+      - name: Install Vercel CLI
+        run: |
+          npm install --prefix "$RUNNER_TEMP/vercel-cli" --ignore-scripts --no-audit --no-fund "vercel@$VERCEL_CLI_VERSION"
+          echo "$RUNNER_TEMP/vercel-cli/node_modules/.bin" >> "$GITHUB_PATH"
+
+      # Ticket 06 adds the migrate step here: it must finish before the API deploys.
+
+      # Both deploys run from the repo root, where the project's Root Directory
+      # setting resolves. Vercel builds on its side from this checkout.
+      - name: Deploy API
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_API_PROJECT_ID }}
+        run: >
+          vercel deploy --prod --yes --logs
+          --build-env ENABLE_EXPERIMENTAL_COREPACK=1
+          --meta gitSha="$GITHUB_SHA"
+
+      - name: Deploy Web
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_WEB_PROJECT_ID }}
+          API_ORIGIN: ${{ vars.API_PRODUCTION_ORIGIN }}
+        run: >
+          vercel deploy --prod --yes --logs
+          --build-env ENABLE_EXPERIMENTAL_COREPACK=1
+          --build-env API_ORIGIN="$API_ORIGIN"
+          --meta gitSha="$GITHUB_SHA"
+
+      # Installed only now, so the deploys above upload nothing but the checkout.
+      - name: Install dependencies from the lockfile
+        run: pnpm install --frozen-lockfile --filter "web..."
+
+      - name: Install Playwright browser
+        run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - name: Smoke test production
+        env:
+          SMOKE_BASE_URL: ${{ vars.WEB_PRODUCTION_ORIGIN }}
+        run: pnpm test:smoke
