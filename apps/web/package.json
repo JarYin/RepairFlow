@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:playwright": "playwright test"
+    "test:playwright": "playwright test",
+    "test:smoke": "playwright test --config playwright.smoke.config.ts"
+  },
+  "engines": {
+    "node": "24.x"
   },
   "dependencies": {
     "@repairflow/contracts": "workspace:*",
