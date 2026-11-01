@@ -35,7 +35,12 @@ function depcruiseTree(files: Record<string, string>) {
   }
 }
 
-describe('module graph rules', () => {
+// Each test starts a new Node process that loads dependency-cruiser from disk. That
+// takes about 1.2s on an idle machine, but measured up to 28s when other installs or
+// image builds compete for disk and memory, so Vitest's default 5s fails at random.
+// 60s is about twice that worst case. Only this slowness is excused: a real rule
+// violation still fails on its assertion, whatever the timeout.
+describe('module graph rules', { timeout: 60_000 }, () => {
   it('fails when two files import each other', () => {
     const { exitCode, output } = depcruiseTree({
       'src/users/users.service.ts': `import { ShopsService } from '../shops/shops.service.js';\nexport class UsersService { shops = new ShopsService(); }\n`,

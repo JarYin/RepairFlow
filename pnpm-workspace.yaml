@@ -3,4 +3,7 @@ packages:
   - packages/*
 
 allowBuilds:
+  # drizzle-kit ships esbuild's binary as an optional platform package, so its
+  # postinstall is not needed.
+  esbuild: false
   unrs-resolver: false

@@ -1,0 +1,30 @@
+# Local and CI Postgres: `pnpm db:up`. Neither ever touches Neon.
+name: repairflow
+
+services:
+  postgres:
+    # Same major version as Neon's default for new projects. Neon cannot change
+    # a project's major version later, so keep this equal to the real project.
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: repairflow
+      # No password exists anywhere, so the repo and CI hold no secret, and
+      # app_tenant, which migrations create without a password, can still log in.
+      # This is safe only because the port below is bound to loopback.
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - '127.0.0.1:5432:5432'
+    volumes:
+      # From Postgres 18 the image keeps its data in a version-named folder under
+      # /var/lib/postgresql, so the volume mounts there and not at .../data.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      # Over TCP on purpose. While the image initialises, a temporary server
+      # listens only on the Unix socket, so a socket check reports ready too early.
+      test: ['CMD', 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres', '-d', 'repairflow']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  postgres-data:
